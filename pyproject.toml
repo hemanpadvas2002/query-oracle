@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "llm-query-router"
+version = "1.0.0"
+description = "Automatic LLM model and effort-level routing based on query classification."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.40.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+server  = ["fastapi>=0.110.0", "uvicorn[standard]>=0.27.0"]
+mcp     = ["mcp>=1.0.0"]
+openai  = ["openai>=1.30.0"]
+gemini  = ["google-generativeai>=0.7.0"]
+train   = ["transformers>=4.40.0", "datasets>=2.19.0", "torch>=2.2.0",
+           "scikit-learn>=1.4.0", "optimum>=1.19.0", "onnxruntime>=1.17.0"]
+all     = ["llm-query-router[server,mcp,openai,gemini]"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,65 @@
+{
+  "name": "llm-query-router",
+  "displayName": "LLM Query Router",
+  "description": "Auto-routes your questions to the optimal LLM model (Haiku→Opus, GPT-4o-mini→o1, Gemini Flash→Thinking) based on query complexity.",
+  "version": "1.0.0",
+  "publisher": "phadvas-industries",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["AI", "Other"],
+  "activationEvents": ["onCommand:llmRouter.ask", "onCommand:llmRouter.classify"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "llmRouter.ask",
+        "title": "LLM Router: Ask (auto-route)"
+      },
+      {
+        "command": "llmRouter.classify",
+        "title": "LLM Router: Classify query"
+      },
+      {
+        "command": "llmRouter.askSelection",
+        "title": "LLM Router: Ask with selected text"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "llmRouter.ask",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      }
+    ],
+    "configuration": {
+      "title": "LLM Query Router",
+      "properties": {
+        "llmRouter.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the llm-query-router REST API server"
+        },
+        "llmRouter.defaultProvider": {
+          "type": "string",
+          "enum": ["anthropic", "openai", "gemini"],
+          "default": "anthropic",
+          "description": "Default LLM provider"
+        },
+        "llmRouter.showRoutingMetadata": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show tier / model / latency info above each response"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

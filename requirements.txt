@@ -1,0 +1,24 @@
+# Core (required)
+anthropic>=0.40.0
+python-dotenv>=1.0.0
+
+# REST API server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+
+# MCP server (Claude Code / Claude Desktop plugin)
+mcp>=1.0.0
+
+# OpenAI provider (optional)
+openai>=1.30.0
+
+# Gemini provider (optional)
+google-generativeai>=0.7.0
+
+# DistilBERT fine-tuning (training only — not needed for prompt-based routing)
+# transformers>=4.40.0
+# datasets>=2.19.0
+# torch>=2.2.0
+# scikit-learn>=1.4.0
+# optimum>=1.19.0
+# onnxruntime>=1.17.0

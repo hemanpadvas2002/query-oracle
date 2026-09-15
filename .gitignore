@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+logs/*.jsonl
+training/query-classifier-final/
+training/data/*.csv
+vscode-extension/node_modules/
+vscode-extension/out/
+*.vsix
