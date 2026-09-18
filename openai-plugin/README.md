@@ -54,13 +54,13 @@ CMD ["uvicorn", "server.rest_api:app", "--host", "0.0.0.0", "--port", "8000"]
 Edit `openapi.yaml`:
 ```yaml
 servers:
-  - url: https://YOUR_DEPLOYMENT_URL   # ← replace
+  - url: https://query-oracle-production.up.railway.app
 ```
 
 Edit `ai-plugin.json`:
 ```json
-"url": "https://YOUR_DEPLOYMENT_URL/openapi.yaml"
-"logo_url": "https://YOUR_DEPLOYMENT_URL/logo.png"
+"url": "https://query-oracle-production.up.railway.app/openapi.json"
+"logo_url": "https://query-oracle-production.up.railway.app/logo.png"
 ```
 
 The FastAPI server automatically serves the OpenAPI spec at `/openapi.json`.

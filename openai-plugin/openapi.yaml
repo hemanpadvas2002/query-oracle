@@ -9,8 +9,8 @@ info:
   version: "1.0.0"
 
 servers:
-  - url: https://your-deployed-router.example.com
-    description: Production (replace with your deployment URL)
+  - url: https://query-oracle-production.up.railway.app
+    description: Production
   - url: http://localhost:8000
     description: Local development
 

@@ -9,9 +9,9 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://your-deployed-router.example.com/openapi.yaml"
+    "url": "https://query-oracle-production.up.railway.app/openapi.json"
   },
-  "logo_url": "https://your-deployed-router.example.com/logo.png",
+  "logo_url": "https://query-oracle-production.up.railway.app/logo.png",
   "contact_email": "tailung.hp@gmail.com",
   "legal_info_url": "https://github.com/hemanpadvas2002/query-oracle/blob/main/LICENSE"
 }
