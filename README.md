@@ -1,419 +1,215 @@
 # query-oracle
 
-Automatic LLM model and effort-level routing based on query classification. Instead of manually picking Haiku vs Sonnet vs Opus (or GPT-4o-mini vs GPT-4o vs o1, or Gemini Flash vs Pro vs Thinking), the router reads your query, classifies it on a facts-to-judgment spectrum, and dispatches it to the right model at the right effort level — automatically.
+> Automatic LLM routing — the right model, the right effort, zero manual selection.
 
-```
-User Query
-    ↓
-Classifier (small model or local DistilBERT)
-    ↓  tier: fast | balanced | deep
-Router
-    ↓  selects provider + model + effort + extended thinking
-Haiku  /  GPT-4o-mini  /  Gemini Flash        ← FAST
-Sonnet /  GPT-4o       /  Gemini Pro           ← BALANCED
-Opus   /  o1           /  Gemini Thinking      ← DEEP
-    ↓
-Response + full routing metadata (tier, cost_usd, latency_ms, …)
-```
-
-Works as a **Python library**, a **REST API**, a **Claude Code / Claude Desktop MCP plugin**, a **VS Code / Cursor extension**, a **ChatGPT / Custom GPT Action**, and a **GitHub Copilot skill**.
+[![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
+[![Live](https://img.shields.io/badge/API-live%20on%20Railway-brightgreen)](https://query-oracle-production.up.railway.app/health)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
 ---
 
-## Routing logic
+## Live demo
 
-| Tier | When | Anthropic | OpenAI | Gemini |
-|------|------|-----------|--------|--------|
-| `fast` | Factual lookups, news, maths, nutrition | claude-haiku-4-5 | gpt-4o-mini | gemini-1.5-flash |
-| `balanced` | Analysis, explanations, moderate reasoning | claude-sonnet-4-5 | gpt-4o | gemini-1.5-pro |
-| `deep` | Ideation, strategy, ethics, complex design | claude-opus-4-5 + thinking | o1 (high reasoning) | gemini-2.0-flash-thinking |
-
----
-
-## Installation
-
-```bash
-git clone https://github.com/hemanpadvas2002/query-oracle.git
-cd query-oracle
-pip install -e .          # core (Anthropic + routing)
-pip install -e ".[all]"   # all providers + server + MCP
-cp .env.example .env
-# Edit .env — add the API key(s) for the provider(s) you want
 ```
-
-You only need **one** provider key to get started.
-
----
-
-## 1. Python library
-
-```python
+$ python -c "
 from llm_router import QueryRouter
+r = QueryRouter().route('Design a fault-tolerant event streaming architecture.')
+print(r.content[:120], '...')
+print()
+print(f'  tier      {r.tier.value}')
+print(f'  model     {r.model_used}')
+print(f'  thinking  {r.extended_thinking_used}')
+print(f'  latency   {r.latency_ms:.0f} ms')
+print(f'  cost      \${r.cost_usd:.5f}')
+print(f'  reasoning {r.classification.reasoning}')
+"
 
-router = QueryRouter()
-r = router.route("How many calories are in a boiled egg?")
+A fault-tolerant event streaming architecture typically combines a distributed
+log (Kafka or Kinesis) with idempotent consumers, dead-letter queues ...
 
-print(r.content)      # answer
-print(r.tier)         # QueryTier.FAST
-print(r.model_used)   # claude-haiku-4-5
-print(r.latency_ms)   # ~800ms
-print(r.cost_usd)     # ~0.000004
-```
-
-```python
-# Async interface
-import asyncio
-from llm_router import QueryRouter
-
-router = QueryRouter()
-r = asyncio.run(router.async_route("Design an intent-driven AI OS."))
-# Or with gather:
-r1, r2 = asyncio.run(asyncio.gather(
-    router.async_route("How does TCP work?"),
-    router.async_route("Design a fraud detection system."),
-))
-```
-
-```python
-# Use OpenAI instead
-from llm_router import QueryRouter, RouterConfig
-from llm_router.providers import OpenAIProvider
-
-config = RouterConfig()
-router = QueryRouter(config=config, provider=OpenAIProvider(config))
-r = router.route("Design an intent-driven AI OS for non-technical users.")
-# → tier=DEEP, model=o1, reasoning_effort=high
+  tier      deep
+  model     claude-opus-4-5
+  thinking  True
+  latency   3241 ms
+  cost      $0.02184
+  reasoning Complex distributed systems design — strategy tier warranted
 ```
 
 ---
 
-## 2. REST API server (universal)
+## What it does
 
-```bash
-uvicorn server.rest_api:app --port 8000 --reload
-```
+query-oracle sits in front of your LLM calls and automatically decides which model deserves the query. Factual lookups go to Haiku or GPT-4o-mini in under a second; open-ended design problems get routed to Opus with extended thinking or o1 with high reasoning effort. The classification itself costs a fraction of a cent and the routing decision is logged so you can fine-tune a local DistilBERT classifier later — eventually dropping the classification API cost to zero.
 
-```bash
-# Route a query
-curl -X POST http://localhost:8000/route \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Design an AI product strategy.", "provider": "anthropic"}'
-
-# Classify only (no LLM call)
-curl -X POST http://localhost:8000/classify \
-  -H "Content-Type: application/json" \
-  -d '{"query": "How many calories in a banana?"}'
-
-# Swagger UI
-open http://localhost:8000/docs
-```
+It ships as a Python library, a live REST API, a Claude Code MCP plugin, a VS Code / Cursor extension, an OpenAI Custom GPT Action, and a reusable GitHub Actions workflow. Pick whichever integration fits your stack.
 
 ---
 
-## 3. Claude Code / Claude Desktop — MCP Plugin
+## Quick install — pick your platform
 
-### Option A — installed console script (recommended)
+### Claude Code / Claude Desktop (MCP)
 
 ```bash
 pip install -e ".[mcp]"
 claude mcp add query-oracle -- query-oracle-mcp
 ```
 
-### Option B — direct file path (no install needed)
+Then in any Claude conversation:
 
-Add to `~/.claude/claude_desktop_config.json`:
+```
+route "Design a real-time fraud detection pipeline."
+classify "What is the capital of France?"
+```
+
+Or add to `~/.claude/claude_desktop_config.json` manually:
 
 ```json
 {
   "mcpServers": {
     "query-oracle": {
-      "command": "python",
-      "args": ["/absolute/path/to/query-oracle/server/mcp_server.py"],
-      "env": {
-        "ANTHROPIC_API_KEY": "sk-ant-...",
-        "OPENAI_API_KEY":    "sk-...",
-        "GEMINI_API_KEY":    "AIza..."
-      }
+      "command": "query-oracle-mcp",
+      "env": { "ANTHROPIC_API_KEY": "sk-ant-..." }
     }
   }
 }
 ```
 
-Restart Claude Desktop / Claude Code. Then use in chat:
+---
+
+### ChatGPT — Custom GPT Action
+
+Paste this URL into **GPT builder → Configure → Actions → Import from URL**:
 
 ```
-route "Design an intent-driven AI OS"
-classify "How many calories in a banana?"
+https://query-oracle-production.up.railway.app/openapi.json
 ```
 
-The router picks the right model automatically.
+The server is live — no setup required. See [`openai-plugin/README.md`](openai-plugin/README.md) for how to self-host and add authentication.
 
 ---
 
-## 4. VS Code / Cursor Extension
+### Cursor / VS Code Extension
 
-The extension **starts the REST server automatically** on first use — no manual uvicorn command.
-
-### Install from .vsix
+The extension starts the REST server automatically — no manual uvicorn command.
 
 ```bash
 cd vscode-extension
 npm install
-npm run package          # produces query-oracle-1.0.0.vsix
+npm run package                               # → query-oracle-1.0.0.vsix
 code --install-extension query-oracle-1.0.0.vsix
 ```
 
-### Install from Marketplace (once published)
-
-Search for **"Query Oracle"** in the Extensions panel, or:
-```
-ext install phadvas-industries.query-oracle
-```
-
-### Usage
-
-Press `Cmd/Ctrl+Shift+L` to open the input box.  
-The extension:
-1. Checks if the REST server is running on port 8000
-2. If not, spawns it automatically using your configured Python path
-3. Routes your query and displays the response in the **LLM Query Router** output panel
-
-### Settings (`settings.json`)
-
-```json
-{
-  "llmRouter.defaultProvider":      "anthropic",
-  "llmRouter.autoStart":            true,
-  "llmRouter.pythonPath":           "python",
-  "llmRouter.serverPort":           8000,
-  "llmRouter.showRoutingMetadata":  true
-}
-```
-
-### Commands (Command Palette)
-
-| Command | Shortcut |
-|---|---|
-| `LLM Router: Ask (auto-route)` | `Cmd/Ctrl+Shift+L` |
-| `LLM Router: Ask with selected text` | — |
-| `LLM Router: Classify query` | — |
-
-### Publish to VS Code Marketplace
-
-Push a tag (`git tag v1.0.0 && git push --tags`) — the `vsce-publish.yml` workflow builds and publishes automatically. Requires a `VSCE_PAT` secret (Azure DevOps personal access token with Marketplace → Manage scope).
+Press `Cmd/Ctrl+Shift+L` to open the query input. Responses appear in the **LLM Query Router** output panel with tier, model, latency, and cost.
 
 ---
 
-## 5. ChatGPT / Custom GPT Action
+### GitHub Copilot / Codex
 
-See [`openai-plugin/README.md`](openai-plugin/README.md) for full setup.
+Copy `.github/copilot-instructions.md` into your own repo's `.github/` folder. Copilot will read it automatically in VS Code and JetBrains and stop suggesting hard-coded model names.
 
-Quick summary:
-1. Deploy the REST server to a public URL (Railway, Render, Fly.io, Docker)
-2. In Custom GPT builder → **Actions** → paste `openai-plugin/openapi.yaml`
-3. Update the server URL in the spec
-4. Test `routeQuery` and save
-
----
-
-## 6. GitHub Copilot
-
-### Repository-level instructions
-
-`.github/copilot-instructions.md` tells Copilot to use the router in this repo. Instructions are automatically picked up by GitHub Copilot in supported editors.
-
-### Reusable Copilot skill (GitHub Actions)
-
-Call the router from any workflow or Copilot Workspace task:
+For GitHub Actions / Copilot Workspace tasks:
 
 ```yaml
 jobs:
   design:
     uses: hemanpadvas2002/query-oracle/.github/workflows/copilot-router.yml@main
     with:
-      query: "Design a fault-tolerant event streaming architecture."
-      provider: "anthropic"
+      query: "Design a zero-downtime database migration strategy."
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-The workflow outputs `response`, `tier`, `model_used`, and `cost_usd`.
-
-### One-liner in any Copilot pipeline
-
-```bash
-TIER=$(curl -s -X POST http://localhost:8000/classify \
-  -H "Content-Type: application/json" \
-  -d "{\"query\": \"$USER_QUERY\"}" | jq -r .tier)
-
-echo "Routing tier: $TIER"
+    # outputs: response, tier, model_used, cost_usd
 ```
 
 ---
 
-## Response object
+## How routing works
+
+| Tier | When | Anthropic | OpenAI | Gemini |
+|---|---|---|---|---|
+| `fast` | Factual lookups, maths, news, nutrition | claude-haiku-4-5 | gpt-4o-mini | gemini-1.5-flash |
+| `balanced` | Analysis, explanations, moderate reasoning | claude-sonnet-4-5 | gpt-4o | gemini-1.5-pro |
+| `deep` | Strategy, design, ethics, complex ideation | claude-opus-4-5 + thinking | o1 (high) | gemini-2.0-flash-thinking |
+
+The classifier sends the query to a small model (Haiku by default) with a structured prompt that returns `tier`, `effort`, `facts_ratio`, `judgment_ratio`, `confidence`, and a one-sentence `reasoning`. Every result is logged to `logs/classifications.jsonl` — this passively builds the labelled dataset for local DistilBERT fine-tuning.
+
+---
+
+## Response fields
 
 ```python
 RouterResponse(
-    content:                str,         # model's answer
-    tier:                   QueryTier,   # fast | balanced | deep
-    effort:                 EffortLevel, # low | medium | high
-    provider:               ProviderType,
-    model_used:             str,
-    extended_thinking_used: bool,
-    cost_usd:               float,       # estimated cost in USD
-    classification: ClassificationResult(
-        tier, effort,
-        facts_ratio,     # 0.0 = pure judgment → 1.0 = pure facts
-        judgment_ratio,
-        confidence,
-        reasoning,       # one-line explanation
+    content      = "A fault-tolerant streaming architecture typically...",
+    tier         = QueryTier.DEEP,
+    effort       = EffortLevel.HIGH,
+    provider     = ProviderType.ANTHROPIC,
+    model_used   = "claude-opus-4-5",
+    extended_thinking_used = True,
+    cost_usd     = 0.02184,
+    input_tokens  = 312,
+    output_tokens = 891,
+    latency_ms   = 3241.4,
+    classification = ClassificationResult(
+        tier           = QueryTier.DEEP,
+        effort         = EffortLevel.HIGH,
+        facts_ratio    = 0.12,
+        judgment_ratio = 0.88,
+        confidence     = 0.94,
+        reasoning      = "Complex distributed systems design — strategy tier warranted",
     ),
-    input_tokens:  int,
-    output_tokens: int,
-    latency_ms:    float,
 )
 ```
 
 ---
 
-## Switching to a local DistilBERT classifier (zero API cost)
+## Live REST API
 
-Once you have labelled training data, fine-tune DistilBERT and swap the classifier:
-
-```bash
-pip install transformers datasets torch scikit-learn optimum onnxruntime
-python training/train.py --data training/data/queries.csv
-```
-
-Dataset format (`training/data/queries.csv`):
-```csv
-query,label
-"How many calories in a banana?",fast
-"Explain TCP vs UDP.",balanced
-"Design an AI OS architecture.",deep
-```
-
-```python
-from llm_router import QueryRouter, DistilBERTClassifier
-
-clf    = DistilBERTClassifier("training/query-classifier-final", use_onnx=True)
-router = QueryRouter(classifier=clf)
-# → Classification now runs locally in ~10ms, zero API cost
-```
-
----
-
-## Adding a new provider
-
-```python
-from llm_router.providers.base import BaseProvider, CompletionResult
-from llm_router.models import QueryTier, EffortLevel, ProviderType
-
-class MistralProvider(BaseProvider):
-    @property
-    def provider_type(self): return ProviderType("mistral")
-
-    def complete(self, query, tier, effort) -> CompletionResult:
-        model = {"fast": "mistral-small", "balanced": "mistral-medium",
-                 "deep": "mistral-large"}[tier.value]
-        # ... call API ...
-        return CompletionResult(content=..., model_used=model, ...)
-
-router = QueryRouter(provider=MistralProvider(config))
-```
-
----
-
-## Custom model config
-
-```python
-from llm_router import RouterConfig, QueryTier
-
-config = RouterConfig(
-    anthropic_models={
-        QueryTier.FAST:     "claude-haiku-4-5",
-        QueryTier.BALANCED: "claude-sonnet-4-5",
-        QueryTier.DEEP:     "claude-sonnet-4-5",  # Sonnet for DEEP (cheaper)
-    },
-    thinking_budget_map={QueryTier.DEEP: 12000},
-)
-```
-
----
-
-## Project structure
-
-```
-query-oracle/
-├── src/llm_router/
-│   ├── models.py              ← QueryTier, RouterConfig, RouterResponse, MODEL_PRICING
-│   ├── classifier.py          ← PromptClassifier + DistilBERTClassifier
-│   ├── router.py              ← QueryRouter (route + async_route)
-│   ├── mcp_server.py          ← MCP server module (console script entry point)
-│   └── providers/
-│       ├── base.py
-│       ├── anthropic_provider.py
-│       ├── openai_provider.py
-│       └── gemini_provider.py
-├── server/
-│   ├── rest_api.py            ← FastAPI server (universal integration)
-│   └── mcp_server.py         ← Thin shim → delegates to llm_router.mcp_server
-├── vscode-extension/          ← VS Code / Cursor extension (TypeScript)
-│   ├── package.json
-│   ├── .vscodeignore
-│   └── src/
-│       ├── extension.ts       ← commands + display
-│       └── server-manager.ts  ← auto-start/stop the REST server
-├── openai-plugin/
-│   ├── openapi.yaml           ← OpenAPI 3.1 spec for GPT Actions
-│   ├── ai-plugin.json         ← GPT Action manifest
-│   └── README.md              ← deploy & register instructions
-├── .github/
-│   ├── copilot-instructions.md  ← repo-level Copilot guidance
-│   └── workflows/
-│       ├── ci.yml               ← pytest on push (Python 3.10–3.12)
-│       ├── vsce-publish.yml     ← publish extension on git tag
-│       └── copilot-router.yml   ← reusable Copilot skill workflow
-├── training/
-│   ├── train.py               ← DistilBERT fine-tuning + ONNX export
-│   └── data/                  ← put queries.csv here
-├── examples/
-│   ├── basic_usage.py
-│   └── multi_provider.py
-└── logs/                      ← auto-generated classification log (JSONL)
-```
-
----
-
-## Roadmap
-
-- [x] GitHub Actions CI (pytest, Python 3.10–3.12)
-- [x] Cost tracker (`cost_usd` on every response)
-- [x] Async interface (`async_route`)
-- [x] MCP console script (`query-oracle-mcp`)
-- [x] VS Code extension auto-start server
-- [x] VS Code Marketplace publish workflow
-- [x] ChatGPT / Custom GPT Action (OpenAPI spec)
-- [x] GitHub Copilot instructions + reusable skill workflow
-- [ ] Fine-tuned DistilBERT classifier (local, ~10ms)
-- [ ] ONNX export for extension bundling
-- [ ] Mistral provider
-- [ ] Streaming responses
-- [ ] UCB1 bandit for adaptive routing from user feedback
-
----
-
-## Push to GitHub
+**Base URL:** `https://query-oracle-production.up.railway.app`
 
 ```bash
-git init
-git add .
-git commit -m "Initial commit: query-oracle"
-git remote add origin https://github.com/hemanpadvas2002/query-oracle.git
-git branch -M main
-git push -u origin main
+# Health check
+curl https://query-oracle-production.up.railway.app/health
+# {"status":"ok"}
+
+# Classify only (no LLM call — instant)
+curl -s -X POST https://query-oracle-production.up.railway.app/classify \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How many calories in a banana?"}' | jq .
+# {
+#   "tier": "fast",
+#   "effort": "low",
+#   "facts_ratio": 0.92,
+#   "judgment_ratio": 0.08,
+#   "confidence": 0.97,
+#   "reasoning": "Simple nutritional lookup — factual tier"
+# }
+
+# Route and get a full response
+curl -s -X POST https://query-oracle-production.up.railway.app/route \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Explain backpressure in reactive systems.", "provider": "anthropic"}' \
+  | jq '{tier, model_used, cost_usd, latency_ms}'
+# {
+#   "tier": "balanced",
+#   "model_used": "claude-sonnet-4-5",
+#   "cost_usd": 0.00312,
+#   "latency_ms": 1847.2
+# }
 ```
+
+Interactive docs: [`/docs`](https://query-oracle-production.up.railway.app/docs)
+
+---
+
+## Train your own classifier (coming soon)
+
+Once `logs/classifications.jsonl` accumulates ~500 entries, run `python training/train.py --data training/data/queries.csv` to fine-tune a local DistilBERT model. Swap it in with `QueryRouter(classifier=DistilBERTClassifier("training/query-classifier-final"))` and classification drops to ~10 ms with zero API cost.
+
+---
+
+## Contributing
+
+Open an issue or PR — the codebase is intentionally small. Adding a new provider means subclassing `BaseProvider` and implementing one method; the routing logic, classifier, and all integrations stay unchanged.
 
 ---
 
