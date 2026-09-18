@@ -32,20 +32,20 @@ class BaseClassifier(ABC):
 CLASSIFICATION_PROMPT = """\
 You are a query classification engine. Analyse the user query and return JSON:
 
-{
+{{
   "tier":           "fast" | "balanced" | "deep",
   "effort":         "low"  | "medium"   | "high",
-  "facts_ratio":    <float 0.0–1.0>,
-  "judgment_ratio": <float 0.0–1.0>,
-  "confidence":     <float 0.0–1.0>,
+  "facts_ratio":    <float 0.0-1.0>,
+  "judgment_ratio": <float 0.0-1.0>,
+  "confidence":     <float 0.0-1.0>,
   "reasoning":      "<one sentence>"
-}
+}}
 
 Rules:
 - facts_ratio + judgment_ratio = 1.0
-- fast     → factual lookups, news, nutrition, simple maths
-- balanced → moderate analysis, explanations with nuance
-- deep     → ideation, strategy, ethics, complex design
+- fast     -> factual lookups, news, nutrition, simple maths
+- balanced -> moderate analysis, explanations with nuance
+- deep     -> ideation, strategy, ethics, complex design
 - effort follows tier by default but may be raised one level for unusually nuanced queries.
 
 Return ONLY the JSON. No text outside it.

@@ -9,11 +9,11 @@ response = router.route("Design an intent-driven AI OS for non-technical users."
 print(response.content, response.tier, response.model_used)
 """
 from __future__ import annotations
-import os
+import asyncio
 import time
 
 from .classifier import BaseClassifier, PromptClassifier
-from .models import RouterConfig, RouterResponse
+from .models import RouterConfig, RouterResponse, estimate_cost
 from .providers.base import BaseProvider
 
 
@@ -65,4 +65,11 @@ class QueryRouter:
             input_tokens=completion.input_tokens,
             output_tokens=completion.output_tokens,
             latency_ms=(time.monotonic() - t0) * 1000,
+            cost_usd=estimate_cost(
+                completion.model_used, completion.input_tokens, completion.output_tokens
+            ),
         )
+
+    async def async_route(self, query: str) -> RouterResponse:
+        """Non-blocking version of route() — runs the synchronous call in a thread pool."""
+        return await asyncio.get_event_loop().run_in_executor(None, self.route, query)

@@ -25,6 +25,32 @@ class ProviderType(str, Enum):
     GEMINI    = "gemini"
 
 
+# Pricing per 1 M tokens (input, output) in USD — update as providers change rates.
+# Source: provider pricing pages as of mid-2025.
+MODEL_PRICING: dict[str, tuple[float, float]] = {
+    # Anthropic
+    "claude-haiku-4-5":   (0.80,   4.00),
+    "claude-sonnet-4-5":  (3.00,  15.00),
+    "claude-opus-4-5":    (15.00, 75.00),
+    # OpenAI
+    "gpt-4o-mini":        (0.15,   0.60),
+    "gpt-4o":             (2.50,  10.00),
+    "o1":                 (15.00, 60.00),
+    # Gemini
+    "gemini-1.5-flash":              (0.075,  0.30),
+    "gemini-1.5-pro":                (1.25,   5.00),
+    "gemini-2.0-flash-thinking-exp": (0.00,   0.00),   # free preview
+}
+
+
+def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Return estimated cost in USD for a single call."""
+    if model not in MODEL_PRICING:
+        return 0.0
+    in_rate, out_rate = MODEL_PRICING[model]
+    return (input_tokens * in_rate + output_tokens * out_rate) / 1_000_000
+
+
 @dataclass
 class ClassificationResult:
     tier:           QueryTier
@@ -111,3 +137,4 @@ class RouterResponse:
     input_tokens:           int   = 0
     output_tokens:          int   = 0
     latency_ms:             float = 0.0
+    cost_usd:               float = 0.0
