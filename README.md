@@ -5,35 +5,20 @@
 [![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
 [![Live](https://img.shields.io/badge/API-live%20on%20Railway-brightgreen)](https://query-oracle-production.up.railway.app/health)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
 ---
 
 ## Live demo
 
-```
-$ python -c "
+> **Illustrative** — actual output will vary by provider, model, and query.
+
+```python
 from llm_router import QueryRouter
-r = QueryRouter().route('Design a fault-tolerant event streaming architecture.')
-print(r.content[:120], '...')
-print()
-print(f'  tier      {r.tier.value}')
-print(f'  model     {r.model_used}')
-print(f'  thinking  {r.extended_thinking_used}')
-print(f'  latency   {r.latency_ms:.0f} ms')
-print(f'  cost      \${r.cost_usd:.5f}')
-print(f'  reasoning {r.classification.reasoning}')
-"
 
-A fault-tolerant event streaming architecture typically combines a distributed
-log (Kafka or Kinesis) with idempotent consumers, dead-letter queues ...
-
-  tier      deep
-  model     claude-opus-4-5
-  thinking  True
-  latency   3241 ms
-  cost      $0.02184
-  reasoning Complex distributed systems design — strategy tier warranted
+r = QueryRouter().route("Design a fault-tolerant event streaming architecture.")
+print(f"tier={r.tier.value}  model={r.model_used}  thinking={r.extended_thinking_used}")
+print(f"cost=${r.cost_usd:.5f}  total=${r.total_cost_usd:.5f}  latency={r.latency_ms:.0f}ms")
+print(r.classification.reasoning)
 ```
 
 ---
@@ -48,10 +33,26 @@ It ships as a Python library, a live REST API, a Claude Code MCP plugin, a VS Co
 
 ## Quick install — pick your platform
 
+### Python library
+
+```bash
+pip install "query-oracle"
+```
+
+With optional extras:
+
+```bash
+pip install "query-oracle[server]"     # FastAPI REST server
+pip install "query-oracle[mcp]"        # Claude Code / Desktop MCP plugin
+pip install "query-oracle[openai]"     # OpenAI provider
+pip install "query-oracle[gemini]"     # Gemini provider
+pip install "query-oracle[all]"        # everything
+```
+
 ### Claude Code / Claude Desktop (MCP)
 
 ```bash
-pip install -e ".[mcp]"
+pip install "query-oracle[mcp]"
 claude mcp add query-oracle -- query-oracle-mcp
 ```
 
@@ -139,16 +140,17 @@ The classifier sends the query to a small model (Haiku by default) with a struct
 
 ```python
 RouterResponse(
-    content      = "A fault-tolerant streaming architecture typically...",
+    content      = "...",
     tier         = QueryTier.DEEP,
     effort       = EffortLevel.HIGH,
     provider     = ProviderType.ANTHROPIC,
     model_used   = "claude-opus-4-5",
     extended_thinking_used = True,
-    cost_usd     = 0.02184,
     input_tokens  = 312,
     output_tokens = 891,
     latency_ms   = 3241.4,
+    cost_usd     = 0.02184,   # completion cost only
+    total_cost_usd = 0.02188, # completion + classifier cost
     classification = ClassificationResult(
         tier           = QueryTier.DEEP,
         effort         = EffortLevel.HIGH,
@@ -156,6 +158,9 @@ RouterResponse(
         judgment_ratio = 0.88,
         confidence     = 0.94,
         reasoning      = "Complex distributed systems design — strategy tier warranted",
+        classifier_input_tokens  = 85,
+        classifier_output_tokens = 47,
+        classifier_cost_usd      = 0.0000456,
     ),
 )
 ```
@@ -167,37 +172,67 @@ RouterResponse(
 **Base URL:** `https://query-oracle-production.up.railway.app`
 
 ```bash
-# Health check
+# Health check (no auth required)
 curl https://query-oracle-production.up.railway.app/health
 # {"status":"ok"}
 
-# Classify only (no LLM call — instant)
+# Classify only (auth required when QUERY_ORACLE_API_KEY is set)
 curl -s -X POST https://query-oracle-production.up.railway.app/classify \
+  -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "How many calories in a banana?"}' | jq .
-# {
-#   "tier": "fast",
-#   "effort": "low",
-#   "facts_ratio": 0.92,
-#   "judgment_ratio": 0.08,
-#   "confidence": 0.97,
-#   "reasoning": "Simple nutritional lookup — factual tier"
-# }
 
 # Route and get a full response
 curl -s -X POST https://query-oracle-production.up.railway.app/route \
+  -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "Explain backpressure in reactive systems.", "provider": "anthropic"}' \
-  | jq '{tier, model_used, cost_usd, latency_ms}'
-# {
-#   "tier": "balanced",
-#   "model_used": "claude-sonnet-4-5",
-#   "cost_usd": 0.00312,
-#   "latency_ms": 1847.2
-# }
+  | jq '{tier, model_used, cost_usd, total_cost_usd, latency_ms}'
 ```
 
 Interactive docs: [`/docs`](https://query-oracle-production.up.railway.app/docs)
+
+---
+
+## Securing your deployment
+
+By default the server runs in open mode (dev-only). Before exposing it publicly:
+
+**1. Set an API key**
+
+```bash
+export QUERY_ORACLE_API_KEY="your-secret-key"
+```
+
+All requests to `/route` and `/classify` then require:
+
+```
+Authorization: Bearer your-secret-key
+```
+
+The `/health` endpoint stays open. The server logs a warning at startup if no key is set.
+
+**2. Restrict CORS origins**
+
+```bash
+export CORS_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"
+```
+
+When unset, CORS defaults to `*` (any origin). Set it to your specific domains in production.
+
+**3. Rate limiting**
+
+The `/route` endpoint enforces 30 requests per minute per client IP in-process. For heavier traffic, put an API gateway (e.g. Nginx, Cloudflare, Railway gateway) in front.
+
+**Railway environment variables:**
+
+```
+QUERY_ORACLE_API_KEY   → your secret key
+ANTHROPIC_API_KEY      → sk-ant-...
+OPENAI_API_KEY         → sk-...   (optional)
+GEMINI_API_KEY         → AIza...  (optional)
+CORS_ORIGINS           → https://yourdomain.com
+```
 
 ---
 
@@ -215,4 +250,4 @@ Open an issue or PR — the codebase is intentionally small. Adding a new provid
 
 ## Licence
 
-MIT
+MIT — see [LICENSE](LICENSE).

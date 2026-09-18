@@ -3,8 +3,8 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm-query-router"
-version = "1.0.0"
+name = "query-oracle"
+version = "0.3.0"
 description = "Automatic LLM model and effort-level routing based on query classification."
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,7 +21,7 @@ openai  = ["openai>=1.30.0"]
 gemini  = ["google-generativeai>=0.7.0"]
 train   = ["transformers>=4.40.0", "datasets>=2.19.0", "torch>=2.2.0",
            "scikit-learn>=1.4.0", "optimum>=1.19.0", "onnxruntime>=1.17.0"]
-all     = ["llm-query-router[server,mcp,openai,gemini]"]
+all     = ["query-oracle[server,mcp,openai,gemini]"]
 
 [project.scripts]
 query-oracle-mcp = "llm_router.mcp_server:main"

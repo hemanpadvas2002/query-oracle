@@ -54,6 +54,9 @@ class QueryRouter:
             query, tier=classification.tier, effort=classification.effort
         )
 
+        cost_usd = estimate_cost(
+            completion.model_used, completion.input_tokens, completion.output_tokens
+        )
         return RouterResponse(
             content=completion.content,
             tier=classification.tier,
@@ -65,11 +68,10 @@ class QueryRouter:
             input_tokens=completion.input_tokens,
             output_tokens=completion.output_tokens,
             latency_ms=(time.monotonic() - t0) * 1000,
-            cost_usd=estimate_cost(
-                completion.model_used, completion.input_tokens, completion.output_tokens
-            ),
+            cost_usd=cost_usd,
+            total_cost_usd=cost_usd + classification.classifier_cost_usd,
         )
 
     async def async_route(self, query: str) -> RouterResponse:
         """Non-blocking version of route() — runs the synchronous call in a thread pool."""
-        return await asyncio.get_event_loop().run_in_executor(None, self.route, query)
+        return await asyncio.to_thread(self.route, query)

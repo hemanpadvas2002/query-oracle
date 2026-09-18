@@ -6,8 +6,8 @@ export OPENAI_API_KEY=sk-...
 export GEMINI_API_KEY=AIza...
 python examples/multi_provider.py
 """
-from src.llm_router import QueryRouter, RouterConfig
-from src.llm_router.providers import AnthropicProvider, OpenAIProvider, GeminiProvider
+from llm_router import QueryRouter, RouterConfig
+from llm_router.providers import AnthropicProvider, OpenAIProvider, GeminiProvider
 
 config = RouterConfig()
 

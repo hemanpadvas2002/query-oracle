@@ -4,17 +4,20 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.llm_router.models import (
+from llm_router.models import (
     QueryTier, EffortLevel, ProviderType, RouterConfig,
     ClassificationResult, estimate_cost, MODEL_PRICING,
 )
-from src.llm_router.router import QueryRouter
-from src.llm_router.providers.base import CompletionResult
+from llm_router.router import QueryRouter
+from llm_router.providers.base import CompletionResult
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
-def make_classification(tier=QueryTier.FAST) -> ClassificationResult:
+def make_classification(
+    tier=QueryTier.FAST,
+    classifier_cost_usd: float = 0.0,
+) -> ClassificationResult:
     effort_map = {
         QueryTier.FAST: EffortLevel.LOW,
         QueryTier.BALANCED: EffortLevel.MEDIUM,
@@ -24,6 +27,7 @@ def make_classification(tier=QueryTier.FAST) -> ClassificationResult:
         tier=tier, effort=effort_map[tier],
         facts_ratio=0.8, judgment_ratio=0.2,
         confidence=0.95, reasoning="test",
+        classifier_cost_usd=classifier_cost_usd,
     )
 
 
@@ -77,6 +81,30 @@ def test_router_response_cost_zero_for_unknown_model():
     router = QueryRouter(config=config, provider=mock_prov, classifier=mock_clf)
     resp = router.route("test")
     assert resp.cost_usd == 0.0
+
+
+# ── BUG 10 fix: total_cost_usd includes classifier cost ──────────────────────
+
+def test_total_cost_usd_includes_classifier_cost():
+    """total_cost_usd must equal completion cost + classifier cost."""
+    config = RouterConfig(log_classifications=False)
+    clf_cost = 0.000042
+    mock_clf = MagicMock()
+    mock_clf.classify.return_value = make_classification(classifier_cost_usd=clf_cost)
+    mock_prov = MagicMock()
+    mock_prov.complete.return_value = make_completion()
+    router = QueryRouter(config=config, provider=mock_prov, classifier=mock_clf)
+    resp = router.route("test")
+    expected_completion = (100 * 0.80 + 50 * 4.00) / 1_000_000
+    assert resp.cost_usd == pytest.approx(expected_completion)
+    assert resp.total_cost_usd == pytest.approx(expected_completion + clf_cost)
+
+
+def test_total_cost_usd_zero_classifier():
+    """When classifier cost is 0 (e.g. DistilBERT), total equals completion cost."""
+    router = make_router()
+    resp = router.route("test")
+    assert resp.total_cost_usd == pytest.approx(resp.cost_usd)
 
 
 # ── async interface ───────────────────────────────────────────────────────────

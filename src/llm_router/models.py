@@ -1,5 +1,5 @@
 """
-Core data models for llm-query-router.
+Core data models for query-oracle.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -26,7 +26,6 @@ class ProviderType(str, Enum):
 
 
 # Pricing per 1 M tokens (input, output) in USD — update as providers change rates.
-# Source: provider pricing pages as of mid-2025.
 MODEL_PRICING: dict[str, tuple[float, float]] = {
     # Anthropic
     "claude-haiku-4-5":   (0.80,   4.00),
@@ -39,7 +38,7 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
     # Gemini
     "gemini-1.5-flash":              (0.075,  0.30),
     "gemini-1.5-pro":                (1.25,   5.00),
-    "gemini-2.0-flash-thinking-exp": (0.00,   0.00),   # free preview
+    "gemini-2.0-flash-thinking-exp": (0.00,   0.00),
 }
 
 
@@ -59,6 +58,10 @@ class ClassificationResult:
     judgment_ratio: float
     reasoning:      str
     confidence:     float
+    # Classifier's own token usage (0 for local DistilBERT)
+    classifier_input_tokens:  int   = 0
+    classifier_output_tokens: int   = 0
+    classifier_cost_usd:      float = 0.0
 
 
 @dataclass
@@ -110,10 +113,12 @@ class RouterConfig:
     })
 
     # ── Max output tokens ────────────────────────────────────────────────
+    # DEEP must be > thinking_budget_map[DEEP] + answer headroom.
+    # Default: 8000 thinking + 8000 answer = 16000.
     max_tokens_map: dict[QueryTier, int] = field(default_factory=lambda: {
         QueryTier.FAST:     1024,
         QueryTier.BALANCED: 4096,
-        QueryTier.DEEP:     8192,
+        QueryTier.DEEP:     16000,
     })
 
     # ── Classifier settings ──────────────────────────────────────────────
@@ -123,6 +128,19 @@ class RouterConfig:
     # ── Logging (builds your fine-tuning dataset passively) ─────────────
     log_classifications: bool = True
     log_path:            str  = "logs/classifications.jsonl"
+
+    def __post_init__(self) -> None:
+        for tier in QueryTier:
+            budget = self.thinking_budget_map.get(tier, 0)
+            max_t  = self.max_tokens_map.get(tier, 0)
+            if budget > 0 and max_t <= budget:
+                raise ValueError(
+                    f"RouterConfig: max_tokens_map[{tier.value}]={max_t} must be "
+                    f"greater than thinking_budget_map[{tier.value}]={budget}. "
+                    f"Thinking tokens count against max_tokens, leaving only "
+                    f"{max_t - budget} tokens for the actual answer. "
+                    f"Set max_tokens_map[{tier.value}] to at least {budget + 1024}."
+                )
 
 
 @dataclass
@@ -137,4 +155,5 @@ class RouterResponse:
     input_tokens:           int   = 0
     output_tokens:          int   = 0
     latency_ms:             float = 0.0
-    cost_usd:               float = 0.0
+    cost_usd:               float = 0.0   # completion-only cost
+    total_cost_usd:         float = 0.0   # completion + classifier cost

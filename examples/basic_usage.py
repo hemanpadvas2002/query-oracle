@@ -4,7 +4,7 @@ Basic usage — Anthropic provider (default).
 export ANTHROPIC_API_KEY=sk-ant-...
 python examples/basic_usage.py
 """
-from src.llm_router import QueryRouter
+from llm_router import QueryRouter
 
 router = QueryRouter()
 

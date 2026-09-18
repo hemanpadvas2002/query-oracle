@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from abc import ABC, abstractmethod
 
-from .models import ClassificationResult, EffortLevel, QueryTier, RouterConfig
+from .models import ClassificationResult, EffortLevel, QueryTier, RouterConfig, estimate_cost
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Abstract base
@@ -66,13 +66,19 @@ class PromptClassifier(BaseClassifier):
             Path(config.log_path).parent.mkdir(parents=True, exist_ok=True)
 
     def classify(self, query: str) -> ClassificationResult:
-        raw    = self._call_model(query)
+        raw, in_tok, out_tok = self._call_model(query)
         result = self._parse(raw)
+        result.classifier_input_tokens  = in_tok
+        result.classifier_output_tokens = out_tok
+        result.classifier_cost_usd      = estimate_cost(
+            self.config.classifier_model, in_tok, out_tok
+        )
         if self.config.log_classifications:
             self._log(query, result)
         return result
 
-    def _call_model(self, query: str) -> str:
+    def _call_model(self, query: str) -> tuple[str, int, int]:
+        """Returns (text, input_tokens, output_tokens)."""
         from .models import ProviderType
         provider = self.config.classifier_provider
         prompt   = CLASSIFICATION_PROMPT.format(query=query)
@@ -85,7 +91,11 @@ class PromptClassifier(BaseClassifier):
                 max_tokens=512,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return r.content[0].text.strip()
+            return (
+                r.content[0].text.strip(),
+                r.usage.input_tokens,
+                r.usage.output_tokens,
+            )
 
         elif provider == ProviderType.OPENAI:
             from openai import OpenAI
@@ -95,14 +105,51 @@ class PromptClassifier(BaseClassifier):
                 max_tokens=512,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return r.choices[0].message.content.strip()
+            return (
+                r.choices[0].message.content.strip(),
+                r.usage.prompt_tokens,
+                r.usage.completion_tokens,
+            )
 
         elif provider == ProviderType.GEMINI:
-            import google.generativeai as genai
-            model = genai.GenerativeModel(self.config.classifier_model)
-            return model.generate_content(prompt).text.strip()
+            # BUG 9 fix: honour self._client when injected; otherwise configure from env.
+            if self._client:
+                model_instance = self._client
+            else:
+                import os
+                import google.generativeai as genai
+                api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+                if api_key:
+                    genai.configure(api_key=api_key)
+                model_instance = genai.GenerativeModel(self.config.classifier_model)
+            r = model_instance.generate_content(prompt)
+            in_tok  = (
+                getattr(r.usage_metadata, "prompt_token_count", 0)
+                if hasattr(r, "usage_metadata") else 0
+            )
+            out_tok = (
+                getattr(r.usage_metadata, "candidates_token_count", 0)
+                if hasattr(r, "usage_metadata") else 0
+            )
+            return r.text.strip(), in_tok, out_tok
 
         raise ValueError(f"Unknown classifier provider: {provider}")
+
+    # ── BUG 7 fix: coerce helpers tolerate uppercase / unexpected values ──────
+
+    @staticmethod
+    def _coerce_tier(raw: str) -> QueryTier:
+        try:
+            return QueryTier(raw.strip().lower())
+        except ValueError:
+            return QueryTier.BALANCED
+
+    @staticmethod
+    def _coerce_effort(raw: str) -> EffortLevel:
+        try:
+            return EffortLevel(raw.strip().lower())
+        except ValueError:
+            return EffortLevel.MEDIUM
 
     def _parse(self, raw: str) -> ClassificationResult:
         if raw.startswith("```"):
@@ -118,8 +165,8 @@ class PromptClassifier(BaseClassifier):
                 confidence=0.0,
             )
         return ClassificationResult(
-            tier=QueryTier(d.get("tier", "balanced")),
-            effort=EffortLevel(d.get("effort", "medium")),
+            tier=self._coerce_tier(d.get("tier", "balanced")),
+            effort=self._coerce_effort(d.get("effort", "medium")),
             facts_ratio=float(d.get("facts_ratio", 0.5)),
             judgment_ratio=float(d.get("judgment_ratio", 0.5)),
             reasoning=d.get("reasoning", ""),
@@ -239,8 +286,10 @@ class DistilBERTClassifier(BaseClassifier):
             None,
             {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
         )[0]
-        probs     = np.exp(logits) / np.exp(logits).sum()
-        label_id  = int(probs.argmax())
+        # BUG 8 fix: numerically stable softmax (subtract max before exp, keep axes)
+        logits_shifted = logits - logits.max(axis=-1, keepdims=True)
+        probs = np.exp(logits_shifted) / np.exp(logits_shifted).sum(axis=-1, keepdims=True)
+        label_id   = int(probs.argmax())
         confidence = float(probs[0][label_id])
         tier = LABEL2TIER[label_id]
         return ClassificationResult(
