@@ -1,0 +1,119 @@
+name: query-oracle Copilot Skill
+
+# Exposes query-oracle as a reusable GitHub Actions workflow that can be
+# called from Copilot Workspace tasks or from other workflows.
+#
+# Usage from another workflow:
+#   jobs:
+#     route:
+#       uses: hemanpadvas2002/query-oracle/.github/workflows/copilot-router.yml@main
+#       with:
+#         query: "Design a microservices architecture for a payments system."
+#         provider: "anthropic"
+#       secrets:
+#         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+#
+# The routed response is available as the `response` output.
+
+on:
+  workflow_call:
+    inputs:
+      query:
+        description: "The query to route"
+        required: true
+        type: string
+      provider:
+        description: "LLM provider: anthropic | openai | gemini"
+        required: false
+        type: string
+        default: "anthropic"
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+    outputs:
+      response:
+        description: "The routed model response"
+        value: ${{ jobs.route.outputs.response }}
+      tier:
+        description: "Routing tier: fast | balanced | deep"
+        value: ${{ jobs.route.outputs.tier }}
+      model_used:
+        description: "Model that answered the query"
+        value: ${{ jobs.route.outputs.model_used }}
+      cost_usd:
+        description: "Estimated cost in USD"
+        value: ${{ jobs.route.outputs.cost_usd }}
+
+  # Also allow manual dispatch for testing
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "Query to route"
+        required: true
+      provider:
+        description: "Provider (anthropic | openai | gemini)"
+        default: "anthropic"
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    outputs:
+      response:   ${{ steps.route.outputs.response }}
+      tier:       ${{ steps.route.outputs.tier }}
+      model_used: ${{ steps.route.outputs.model_used }}
+      cost_usd:   ${{ steps.route.outputs.cost_usd }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e . fastapi uvicorn
+
+      - name: Start REST server
+        run: |
+          uvicorn server.rest_api:app --port 8000 --host 127.0.0.1 &
+          # Wait for server to be ready
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8000/health && break
+            sleep 1
+          done
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Route query
+        id: route
+        run: |
+          RESULT=$(curl -sf -X POST http://127.0.0.1:8000/route \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg q "$QUERY" --arg p "$PROVIDER" \
+                   '{query: $q, provider: $p}')")
+          echo "response=$(echo "$RESULT" | jq -r '.content')"   >> "$GITHUB_OUTPUT"
+          echo "tier=$(echo "$RESULT"     | jq -r '.tier')"      >> "$GITHUB_OUTPUT"
+          echo "model_used=$(echo "$RESULT" | jq -r '.model_used')" >> "$GITHUB_OUTPUT"
+          echo "cost_usd=$(echo "$RESULT" | jq -r '.cost_usd')"  >> "$GITHUB_OUTPUT"
+        env:
+          QUERY:    ${{ inputs.query }}
+          PROVIDER: ${{ inputs.provider }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Print result
+        run: |
+          echo "### query-oracle result" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Tier:** ${{ steps.route.outputs.tier }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Model:** ${{ steps.route.outputs.model_used }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Cost:** \$${{ steps.route.outputs.cost_usd }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.route.outputs.response }}" >> "$GITHUB_STEP_SUMMARY"

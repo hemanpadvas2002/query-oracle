@@ -1,12 +1,22 @@
 {
-  "name": "llm-query-router",
-  "displayName": "LLM Query Router",
-  "description": "Auto-routes your questions to the optimal LLM model (Haiku→Opus, GPT-4o-mini→o1, Gemini Flash→Thinking) based on query complexity.",
+  "name": "query-oracle",
+  "displayName": "Query Oracle — LLM Router",
+  "description": "Auto-routes questions to the optimal LLM (Haiku→Opus, GPT-4o-mini→o1, Gemini Flash→Thinking) based on query complexity. No manual model selection.",
   "version": "1.0.0",
   "publisher": "phadvas-industries",
-  "engines": { "vscode": "^1.85.0" },
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hemanpadvas2002/query-oracle"
+  },
+  "bugs": {
+    "url": "https://github.com/hemanpadvas2002/query-oracle/issues"
+  },
+  "keywords": ["llm", "ai", "routing", "claude", "openai", "gemini", "copilot"],
   "categories": ["AI", "Other"],
-  "activationEvents": ["onCommand:llmRouter.ask", "onCommand:llmRouter.classify"],
+  "engines": { "vscode": "^1.85.0" },
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -36,30 +46,49 @@
         "llmRouter.apiUrl": {
           "type": "string",
           "default": "http://localhost:8000",
-          "description": "URL of the llm-query-router REST API server"
+          "description": "REST API URL. Change only if you run the server on a different port or host."
         },
         "llmRouter.defaultProvider": {
           "type": "string",
           "enum": ["anthropic", "openai", "gemini"],
           "default": "anthropic",
-          "description": "Default LLM provider"
+          "description": "Default LLM provider (needs the matching API key in env)."
         },
         "llmRouter.showRoutingMetadata": {
           "type": "boolean",
           "default": true,
-          "description": "Show tier / model / latency info above each response"
+          "description": "Show tier / model / latency / cost above each response."
+        },
+        "llmRouter.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the REST server if it is not already running."
+        },
+        "llmRouter.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python executable used to start the server (e.g. 'python3' or an absolute path to a venv)."
+        },
+        "llmRouter.serverPort": {
+          "type": "number",
+          "default": 8000,
+          "description": "Port for the auto-started REST server."
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "compile": "npm run esbuild-base -- --sourcemap",
+    "watch": "npm run esbuild-base -- --sourcemap --watch",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
     "typescript": "^5.3.0"
   }
 }

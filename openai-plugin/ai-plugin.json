@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Query Oracle",
+  "name_for_model": "query_oracle",
+  "description_for_human": "Automatically routes your question to the optimal LLM model based on its complexity — no manual model selection needed.",
+  "description_for_model": "Use query-oracle to route any user query to the right LLM model and effort level automatically. Call routeQuery for a full response, or classifyQuery to preview the routing decision without executing a model call. The router returns tier (fast/balanced/deep), model_used, cost_usd, and the answer.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://your-deployed-router.example.com/openapi.yaml"
+  },
+  "logo_url": "https://your-deployed-router.example.com/logo.png",
+  "contact_email": "tailung.hp@gmail.com",
+  "legal_info_url": "https://github.com/hemanpadvas2002/query-oracle/blob/main/LICENSE"
+}

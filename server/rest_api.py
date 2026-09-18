@@ -66,6 +66,7 @@ class RouteResponse(BaseModel):
     input_tokens:           int
     output_tokens:          int
     latency_ms:             float
+    cost_usd:               float
     classification:         ClassificationOut
 
 
@@ -125,6 +126,7 @@ def route(req: RouteRequest):
         input_tokens=r.input_tokens,
         output_tokens=r.output_tokens,
         latency_ms=r.latency_ms,
+        cost_usd=r.cost_usd,
         classification=ClassificationOut(
             tier=r.classification.tier.value,
             effort=r.classification.effort.value,

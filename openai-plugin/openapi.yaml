@@ -1,0 +1,166 @@
+openapi: "3.1.0"
+
+info:
+  title: query-oracle — LLM Query Router
+  description: >
+    Automatically classifies a query on a facts-to-judgment spectrum and
+    dispatches it to the optimal LLM model and effort level.
+    Returns the model response plus full routing metadata (tier, cost, latency).
+  version: "1.0.0"
+
+servers:
+  - url: https://your-deployed-router.example.com
+    description: Production (replace with your deployment URL)
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /route:
+    post:
+      operationId: routeQuery
+      summary: Route a query to the best model
+      description: >
+        Classifies the query and dispatches it to the appropriate model tier:
+        FAST (Haiku/GPT-4o-mini/Gemini Flash) for factual lookups,
+        BALANCED (Sonnet/GPT-4o/Gemini Pro) for analysis,
+        DEEP (Opus+thinking/o1/Gemini Thinking) for complex design and strategy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouteRequest"
+      responses:
+        "200":
+          description: Routed response with metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteResponse"
+        "400":
+          description: Bad request (unknown provider)
+        "500":
+          description: Upstream model error
+
+  /classify:
+    post:
+      operationId: classifyQuery
+      summary: Classify a query without executing it
+      description: >
+        Returns the tier, effort level, facts/judgment ratio, confidence, and
+        one-sentence reasoning for the routing decision. No LLM call is made
+        for the actual response — useful for previewing the routing decision
+        before committing to a model call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassifyRequest"
+      responses:
+        "200":
+          description: Classification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClassificationOut"
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Liveness check
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components:
+  schemas:
+    RouteRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The user's question or task.
+          example: "Design a microservices architecture for a payments platform."
+        provider:
+          type: string
+          enum: [anthropic, openai, gemini]
+          default: anthropic
+          description: Which LLM provider to use for the response.
+
+    ClassifyRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The query to classify (no model call).
+          example: "How many calories are in a boiled egg?"
+
+    ClassificationOut:
+      type: object
+      properties:
+        tier:
+          type: string
+          enum: [fast, balanced, deep]
+        effort:
+          type: string
+          enum: [low, medium, high]
+        facts_ratio:
+          type: number
+          format: float
+          description: "0.0 = pure judgment, 1.0 = pure facts"
+        judgment_ratio:
+          type: number
+          format: float
+        confidence:
+          type: number
+          format: float
+        reasoning:
+          type: string
+          description: One-sentence explanation of the routing decision.
+
+    RouteResponse:
+      type: object
+      properties:
+        content:
+          type: string
+          description: The model's response text.
+        tier:
+          type: string
+          enum: [fast, balanced, deep]
+        effort:
+          type: string
+          enum: [low, medium, high]
+        provider:
+          type: string
+          enum: [anthropic, openai, gemini]
+        model_used:
+          type: string
+          example: "claude-haiku-4-5"
+        extended_thinking_used:
+          type: boolean
+        input_tokens:
+          type: integer
+        output_tokens:
+          type: integer
+        latency_ms:
+          type: number
+          format: float
+        cost_usd:
+          type: number
+          format: float
+          description: Estimated cost of this call in US dollars.
+        classification:
+          $ref: "#/components/schemas/ClassificationOut"
