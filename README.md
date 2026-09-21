@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/query-oracle)](https://pypi.org/project/query-oracle/)
 [![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
-[![Live](https://img.shields.io/badge/API-live%20on%20Railway-brightgreen)](https://query-oracle-production.up.railway.app/health)
+[![API: self-host](https://img.shields.io/badge/API-self--host-blue)](https://query-oracle-production.up.railway.app/health)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 
 ---
@@ -168,30 +168,33 @@ RouterResponse(
 
 ---
 
-## Live REST API
+## REST API
 
-**Base URL:** `https://query-oracle-production.up.railway.app`
+`/health` is the only endpoint that works without configuration — it just confirms the server is up:
 
 ```bash
-# Health check (no auth required)
 curl https://query-oracle-production.up.railway.app/health
 # {"status":"ok"}
+```
 
-# Classify only (auth required when QUERY_ORACLE_API_KEY is set)
-curl -s -X POST https://query-oracle-production.up.railway.app/classify \
+`/route` and `/classify` require a running instance with your own provider key set. The Railway deployment above has no `ANTHROPIC_API_KEY`, so those endpoints will error. **Deploy your own instance** (Railway, Render, Docker — see the Procfile) with your keys, then:
+
+```bash
+# Classify only (no model call)
+curl -s -X POST https://your-instance.up.railway.app/classify \
   -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "How many calories in a banana?"}' | jq .
 
 # Route and get a full response
-curl -s -X POST https://query-oracle-production.up.railway.app/route \
+curl -s -X POST https://your-instance.up.railway.app/route \
   -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "Explain backpressure in reactive systems.", "provider": "anthropic"}' \
   | jq '{tier, model_used, cost_usd, total_cost_usd, latency_ms}'
 ```
 
-Interactive docs: [`/docs`](https://query-oracle-production.up.railway.app/docs)
+See the [Securing your deployment](#securing-your-deployment) section for the required environment variables. Interactive docs are available at `/docs` on any running instance.
 
 ---
 
