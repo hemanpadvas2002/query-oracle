@@ -5,7 +5,6 @@
 Automatic LLM model and effort routing based on query classification.
 
 [![PyPI version](https://img.shields.io/pypi/v/query-oracle)](https://pypi.org/project/query-oracle/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/query-oracle)](https://pypi.org/project/query-oracle/)
 [![Python versions](https://img.shields.io/pypi/pyversions/query-oracle)](https://pypi.org/project/query-oracle/)
 [![License: MIT](https://img.shields.io/github/license/hemanpadvas2002/query-oracle)](LICENSE)
 [![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
