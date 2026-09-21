@@ -122,35 +122,44 @@ async def _startup() -> None:
 
 
 # ── Module-scope router cache (PERF 11) ───────────────────────────────────────
+# Keyed by (provider_name, key_fingerprint) so per-request BYOK callers each
+# get their own cached router without mixing keys between callers.
+# key_fingerprint is None when falling back to the server-side env var.
 
-_ROUTER_CACHE: dict[str, QueryRouter] = {}
+_ROUTER_CACHE: dict[tuple[str, str | None], QueryRouter] = {}
 
 
-def _get_router(provider_name: str) -> QueryRouter:
-    key = provider_name.lower()
-    if key not in _ROUTER_CACHE:
+def _get_router(provider_name: str, api_key: str | None = None) -> QueryRouter:
+    name = provider_name.lower()
+    # Use last 8 chars as a cheap fingerprint — enough to separate callers,
+    # never logged, never stored in full.
+    fingerprint = api_key[-8:] if api_key else None
+    cache_key = (name, fingerprint)
+    if cache_key not in _ROUTER_CACHE:
         config = RouterConfig()
-        if key == "anthropic":
-            provider = AnthropicProvider(config)
-        elif key == "openai":
-            provider = OpenAIProvider(config)
-        elif key == "gemini":
-            provider = GeminiProvider(config)
+        if name == "anthropic":
+            provider = AnthropicProvider(config, api_key=api_key)
+        elif name == "openai":
+            provider = OpenAIProvider(config, api_key=api_key)
+        elif name == "gemini":
+            provider = GeminiProvider(config, api_key=api_key)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown provider: {provider_name}")
-        _ROUTER_CACHE[key] = QueryRouter(config=config, provider=provider)
-    return _ROUTER_CACHE[key]
+        _ROUTER_CACHE[cache_key] = QueryRouter(config=config, provider=provider)
+    return _ROUTER_CACHE[cache_key]
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
 
 class RouteRequest(BaseModel):
-    query:    str
-    provider: Optional[str] = "anthropic"
+    query:            str
+    provider:         Optional[str] = "anthropic"
+    provider_api_key: Optional[str] = None  # BYOK: overrides server env var for this request
 
 
 class ClassifyRequest(BaseModel):
-    query: str
+    query:            str
+    provider_api_key: Optional[str] = None  # BYOK: key for the classifier LLM call
 
 
 class ClassificationOut(BaseModel):
@@ -189,7 +198,7 @@ def health():
 
 @app.post("/classify", response_model=ClassificationOut, dependencies=[Depends(_verify_token)])
 def classify(req: ClassifyRequest):
-    router = _get_router("anthropic")
+    router = _get_router("anthropic", api_key=req.provider_api_key)
     result = router.classifier.classify(req.query)
     return ClassificationOut(
         tier=result.tier.value,
@@ -209,7 +218,7 @@ def route(req: RouteRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     _check_rate_limit(client_ip)
 
-    router = _get_router(req.provider or "anthropic")
+    router = _get_router(req.provider or "anthropic", api_key=req.provider_api_key)
     try:
         r = router.route(req.query)
     except Exception as exc:

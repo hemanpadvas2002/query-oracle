@@ -192,23 +192,33 @@ RouterResponse(
 
 ## REST API
 
-`/health` is the only endpoint that works without configuration — it just confirms the server is up:
+`/health` is the only endpoint that works without any configuration — it just confirms the server is up:
 
 ```bash
 curl https://query-oracle-production.up.railway.app/health
 # {"status":"ok"}
 ```
 
-`/route` and `/classify` require a running instance with your own provider key set. The Railway deployment above has no `ANTHROPIC_API_KEY`, so those endpoints will error. **Deploy your own instance** (Railway, Render, Docker — see the Procfile) with your keys, then:
+`/route` and `/classify` need a provider API key. There are two ways to supply it:
+
+**Option A — BYOK (bring your own key):** pass `provider_api_key` in the request body. Works against the public Railway instance or any deployment — no server-side key needed:
 
 ```bash
 # Classify only (no model call)
-curl -s -X POST https://your-instance.up.railway.app/classify \
-  -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
+curl -s -X POST https://query-oracle-production.up.railway.app/classify \
   -H "Content-Type: application/json" \
-  -d '{"query": "How many calories in a banana?"}' | jq .
+  -d '{"query": "How many calories in a banana?", "provider_api_key": "sk-ant-..."}' | jq .
 
 # Route and get a full response
+curl -s -X POST https://query-oracle-production.up.railway.app/route \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Explain backpressure in reactive systems.", "provider": "anthropic", "provider_api_key": "sk-ant-..."}' \
+  | jq '{tier, model_used, cost_usd, total_cost_usd, latency_ms}'
+```
+
+**Option B — self-hosted with server-side key:** deploy your own instance (Railway, Render, Docker — see the Procfile) with `ANTHROPIC_API_KEY` set in the environment. Callers then omit `provider_api_key` and use `QUERY_ORACLE_API_KEY` for endpoint auth:
+
+```bash
 curl -s -X POST https://your-instance.up.railway.app/route \
   -H "Authorization: Bearer $QUERY_ORACLE_API_KEY" \
   -H "Content-Type: application/json" \
