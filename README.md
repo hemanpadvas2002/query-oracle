@@ -28,7 +28,27 @@ print(r.classification.reasoning)
 
 query-oracle sits in front of your LLM calls and automatically decides which model deserves the query. Factual lookups go to Haiku or GPT-4o-mini in under a second; open-ended design problems get routed to Opus with extended thinking or o1 with high reasoning effort. The classification itself costs a fraction of a cent and the routing decision is logged so you can fine-tune a local DistilBERT classifier later — eventually dropping the classification API cost to zero.
 
-It ships as a Python library, a live REST API, a Claude Code MCP plugin, a VS Code / Cursor extension, an OpenAI Custom GPT Action, and a reusable GitHub Actions workflow. Pick whichever integration fits your stack.
+It ships as a Python library, a REST server you self-host, and an MCP plugin for tools that support the Model Context Protocol natively. The level of integration varies — see the table below.
+
+---
+
+## Compatibility
+
+> **Billing note:** query-oracle makes its own API calls using your provider key. It is not a proxy for your coding tool's core loop, and it does **not** reduce that tool's subscription usage. Every `route` or `classify` call is billed separately to your `ANTHROPIC_API_KEY` (or whichever provider you configure).
+
+| Tool | Integration | What it does |
+|---|---|---|
+| Claude Code | MCP server (built-in) | `route` and `classify` become explicit tool calls; Claude delegates subtasks to the router |
+| Google Antigravity | MCP server (built-in) | Same as above — first-class MCP support, identical config block |
+| Cursor | VS Code extension (standalone) | Manual query panel (Cmd/Ctrl+Shift+L) using your own API keys; **not** woven into Cursor's native AI chat |
+| Codex CLI | None yet | No plugin hook exists; call `/classify` manually via curl in scripts as a workaround |
+
+Run the setup wizard to get the exact steps for your tool:
+
+```bash
+pip install query-oracle
+query-oracle-init
+```
 
 ---
 

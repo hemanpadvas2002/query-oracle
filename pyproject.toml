@@ -49,7 +49,8 @@ train   = ["transformers>=4.40.0", "datasets>=2.19.0", "torch>=2.2.0",
 all     = ["query-oracle[server,mcp,openai,gemini]"]
 
 [project.scripts]
-query-oracle-mcp = "llm_router.mcp_server:main"
+query-oracle-mcp  = "llm_router.mcp_server:main"
+query-oracle-init = "llm_router.init:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
