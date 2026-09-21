@@ -1,11 +1,20 @@
+<div align="center">
+
 # query-oracle
 
-> Automatic LLM routing — the right model, the right effort, zero manual selection.
+Automatic LLM model and effort routing based on query classification.
 
-[![PyPI](https://img.shields.io/pypi/v/query-oracle)](https://pypi.org/project/query-oracle/)
+[![PyPI version](https://img.shields.io/pypi/v/query-oracle)](https://pypi.org/project/query-oracle/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/query-oracle)](https://pypi.org/project/query-oracle/)
+[![Python versions](https://img.shields.io/pypi/pyversions/query-oracle)](https://pypi.org/project/query-oracle/)
+[![License: MIT](https://img.shields.io/github/license/hemanpadvas2002/query-oracle)](LICENSE)
 [![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
-[![API: self-host](https://img.shields.io/badge/API-self--host-blue)](https://query-oracle-production.up.railway.app/health)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![GitHub stars](https://img.shields.io/github/stars/hemanpadvas2002/query-oracle)](https://github.com/hemanpadvas2002/query-oracle/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/hemanpadvas2002/query-oracle)](https://github.com/hemanpadvas2002/query-oracle/forks)
+
+[GitHub](https://github.com/hemanpadvas2002/query-oracle) · [PyPI](https://pypi.org/project/query-oracle/)
+
+</div>
 
 ---
 
