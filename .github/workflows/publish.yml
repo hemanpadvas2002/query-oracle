@@ -1,0 +1,47 @@
+# Publish query-oracle to PyPI using OIDC Trusted Publishing (no stored token).
+#
+# BEFORE this workflow will succeed you must register the trusted publisher once:
+#   https://pypi.org/manage/project/query-oracle/settings/publishing/
+#   Owner:    hemanpadvas2002
+#   Repo:     query-oracle
+#   Workflow: publish.yml
+#   Environment: (leave blank)
+#
+# Trigger: create a GitHub Release (tag vX.Y.Z) or run manually via
+# Actions → Publish to PyPI → Run workflow.
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC trusted publishing
+  contents: read
+
+jobs:
+  build-and-publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install --upgrade build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check distribution
+        run: twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

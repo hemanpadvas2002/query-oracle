@@ -21,7 +21,7 @@ Claude Code / Claude Desktop config (~/.claude/claude_desktop_config.json):
 
 Or via uvx (no install needed):
   "command": "uvx",
-  "args": ["--from", "llm-query-router[mcp]", "query-oracle-mcp"]
+  "args": ["--from", "query-oracle[mcp]", "query-oracle-mcp"]
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ except ImportError:
     try:
         from mcp.server import FastMCP  # type: ignore[no-redef]
     except ImportError:
-        raise ImportError("Install the MCP SDK: pip install 'llm-query-router[mcp]'")
+        raise ImportError("Install the MCP SDK: pip install 'query-oracle[mcp]'")
 
 from .models import RouterConfig
 from .router import QueryRouter

@@ -2,6 +2,7 @@
 
 > Automatic LLM routing — the right model, the right effort, zero manual selection.
 
+[![PyPI](https://img.shields.io/pypi/v/query-oracle)](https://pypi.org/project/query-oracle/)
 [![CI](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/hemanpadvas2002/query-oracle/actions/workflows/ci.yml)
 [![Live](https://img.shields.io/badge/API-live%20on%20Railway-brightgreen)](https://query-oracle-production.up.railway.app/health)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
@@ -245,6 +246,26 @@ Once `logs/classifications.jsonl` accumulates ~500 entries, run `python training
 ## Contributing
 
 Open an issue or PR — the codebase is intentionally small. Adding a new provider means subclassing `BaseProvider` and implementing one method; the routing logic, classifier, and all integrations stay unchanged.
+
+---
+
+## Releasing
+
+Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed.
+
+```bash
+# 1. Bump version in pyproject.toml, commit, push
+git tag v0.4.0
+git push origin v0.4.0
+
+# 2. Go to github.com/hemanpadvas2002/query-oracle → Releases → "Create release from tag"
+#    Publishing the GitHub Release triggers .github/workflows/publish.yml
+#    which builds and uploads to PyPI via OIDC (no stored token needed).
+```
+
+Before the first tag-triggered publish works, register the trusted publisher once at
+[pypi.org/manage/project/query-oracle/settings/publishing/](https://pypi.org/manage/project/query-oracle/settings/publishing/)
+with owner `hemanpadvas2002`, repo `query-oracle`, workflow `publish.yml`.
 
 ---
 

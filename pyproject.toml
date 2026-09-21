@@ -7,16 +7,41 @@ name = "query-oracle"
 version = "0.3.0"
 description = "Automatic LLM model and effort-level routing based on query classification."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "Heman Phadvas", email = "tailung.hp@gmail.com" },
+]
+keywords = [
+    "llm", "routing", "anthropic", "openai", "gemini", "claude",
+    "mcp", "model-selection", "cost-optimization",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "anthropic>=0.40.0",
     "python-dotenv>=1.0.0",
 ]
 
+[project.urls]
+Homepage    = "https://github.com/hemanpadvas2002/query-oracle"
+Repository  = "https://github.com/hemanpadvas2002/query-oracle"
+Issues      = "https://github.com/hemanpadvas2002/query-oracle/issues"
+"Live API"  = "https://query-oracle-production.up.railway.app"
+
 [project.optional-dependencies]
 server  = ["fastapi>=0.110.0", "uvicorn[standard]>=0.27.0"]
-mcp     = ["mcp>=1.0.0"]
+mcp     = ["mcp>=1.0.0,<2.0.0"]
 openai  = ["openai>=1.30.0"]
 gemini  = ["google-generativeai>=0.7.0"]
 train   = ["transformers>=4.40.0", "datasets>=2.19.0", "torch>=2.2.0",
