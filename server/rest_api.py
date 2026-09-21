@@ -16,6 +16,12 @@ Endpoints:
 Security:
     Set QUERY_ORACLE_API_KEY in the environment to enable Bearer token auth.
     When unset, the server logs a startup warning and runs open (dev-only mode).
+
+Rate limiting:
+    _RATE_CACHE is in-process memory (see below). For multi-worker or
+    multi-instance deployments, replace it with a shared store such as Redis
+    (e.g. via redis-py or aioredis) so limits are enforced across all workers.
+    A single uvicorn worker with --workers 1 is safe with the current approach.
 """
 from __future__ import annotations
 import logging
@@ -48,6 +54,12 @@ _CORS_ORIGINS = (
 )
 
 # ── Rate limiting (in-memory, per client IP, /route only) ─────────────────────
+# WARNING: _RATE_CACHE lives in the uvicorn process's heap. It resets on every
+# restart and is NOT shared across multiple workers or instances. Running with
+# --workers N > 1 or deploying multiple containers means each worker enforces
+# its own independent limit, so a client can multiply their effective rate by N.
+# For production multi-worker deployments, replace this with a Redis-backed
+# counter (e.g. redis-py INCR + EXPIRE) shared across all workers.
 
 _RATE_CACHE: dict[str, deque] = {}
 _RATE_LIMIT  = 30
@@ -99,6 +111,13 @@ async def _startup() -> None:
         logger.warning(
             "QUERY_ORACLE_API_KEY is not set — the API is open to anyone. "
             "Set the variable before exposing this server publicly."
+        )
+    if _CORS_ORIGINS == ["*"]:
+        logger.warning(
+            "CORS_ORIGINS is not set — the server accepts requests from any origin. "
+            "This is fine for local development but insecure for public-facing deployments. "
+            "Set CORS_ORIGINS to a comma-separated list of allowed origins, e.g.: "
+            "CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com"
         )
 
 
