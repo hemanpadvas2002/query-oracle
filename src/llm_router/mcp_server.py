@@ -26,18 +26,15 @@ Or via uvx (no install needed):
 from __future__ import annotations
 
 try:
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server.mcpserver import MCPServer
 except ImportError:
-    try:
-        from mcp.server import FastMCP  # type: ignore[no-redef]
-    except ImportError:
-        raise ImportError("Install the MCP SDK: pip install 'query-oracle[mcp]'")
+    raise ImportError("Install the MCP SDK: pip install 'query-oracle[mcp]'")
 
 from .models import RouterConfig
 from .router import QueryRouter
 from .providers import AnthropicProvider, OpenAIProvider, GeminiProvider
 
-mcp = FastMCP("query-oracle")
+mcp = MCPServer("query-oracle")
 
 
 def _provider(name: str, config: RouterConfig):

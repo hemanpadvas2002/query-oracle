@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "query-oracle"
-version = "0.3.0"
+version = "0.3.1"
 description = "Automatic LLM model and effort-level routing based on query classification."
 readme = "README.md"
 license = "MIT"
@@ -41,7 +41,7 @@ Issues      = "https://github.com/hemanpadvas2002/query-oracle/issues"
 
 [project.optional-dependencies]
 server  = ["fastapi>=0.110.0", "uvicorn[standard]>=0.27.0"]
-mcp     = ["mcp>=1.0.0,<2.0.0"]
+mcp     = ["mcp>=2.0.0"]
 openai  = ["openai>=1.30.0"]
 gemini  = ["google-generativeai>=0.7.0"]
 train   = ["transformers>=4.40.0", "datasets>=2.19.0", "torch>=2.2.0",
