@@ -11,6 +11,8 @@
 
 ## Live demo
 
+**Prerequisites:** set your API key before running — either `export ANTHROPIC_API_KEY="sk-ant-..."` in your shell, or add it to a `.env` file in your project root.
+
 > **Illustrative** — actual output will vary by provider, model, and query.
 
 ```python
